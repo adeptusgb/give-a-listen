@@ -1,6 +1,6 @@
 package com.adeptusgb.musicservice.service;
 
-import com.adeptusgb.musicservice.model.Token;
+import com.adeptusgb.musicservice.model.*;
 import com.adeptusgb.musicservice.repository.TokenRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,6 +15,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 
 @Service
 @RequiredArgsConstructor
@@ -30,8 +31,6 @@ public class SpotifyService {
     private static final String SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
     private static final String SPOTIFY_API_URL = "https://api.spotify.com/v1";
 
-    // eventually this method will get the access token from the database and check if it's still valid
-    // for now, it just gets a new access token every time it's called
     public String getAccessToken() throws URISyntaxException {
         Token token = tokenRepository.findFirst();
 
@@ -66,7 +65,8 @@ public class SpotifyService {
         }
     }
 
-    public String spotifySearch(String query, String type) {
+    // need to save tracks, artists, and albums to the database
+    public SpotifySearchResponse spotifySearch(String query, String type) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(new URI(SPOTIFY_API_URL + "/search?q=" + URLEncoder.encode(query) + "&type=" + type))
@@ -76,9 +76,55 @@ public class SpotifyService {
 
             try (HttpClient client = HttpClient.newHttpClient()) {
                 HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                JsonNode jsonNode = objectMapper.readTree(response.body());
 
-                System.out.println(response.body()); // take sout out of production code later
-                return response.body();
+                ArrayList<Track> tracksList = new ArrayList<>();
+                ArrayList<Artist> artistsList = new ArrayList<>();
+                ArrayList<Album> albumsList = new ArrayList<>();
+
+                JsonNode tracksNode = jsonNode.get("tracks");
+                JsonNode artistsNode = jsonNode.get("artists");
+                JsonNode albumsNode = jsonNode.get("albums");
+
+                if (tracksNode != null) {
+                    for (final JsonNode track : tracksNode.get("items")) {
+                        tracksList.add(
+                                new Track(
+                                        track.get("name").asText(),
+                                        track.get("id").asText() // spotify ID, not the database ID!!!
+                                )
+                        );
+                    }
+                }
+
+                if (artistsNode != null) {
+                    for (final JsonNode artist : artistsNode.get("items")) {
+                        artistsList.add(
+                                new Artist(
+                                        artist.get("name").asText(),
+                                        artist.get("id").asText() // spotify ID, not the database ID!!!
+                                )
+                        );
+                    }
+                }
+
+                if (albumsNode != null) {
+                    for (final JsonNode album : albumsNode.get("items")) {
+                        albumsList.add(
+                                new Album(
+                                        album.get("name").asText(),
+                                        album.get("id").asText() // spotify ID, not the database ID!!!
+                                )
+                        );
+                    }
+                }
+
+                return SpotifySearchResponse.builder()
+                        .tracks(tracksList)
+                        .artists(artistsList)
+                        .albums(albumsList)
+                        .statusCode(response.statusCode())
+                        .build();
             } catch (Exception e) {
                 System.out.println(e.getMessage()); // need to handle exception properly to prevent null pointer exception
                 return null;
