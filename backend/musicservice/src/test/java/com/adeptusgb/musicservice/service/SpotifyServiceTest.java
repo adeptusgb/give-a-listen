@@ -1,7 +1,7 @@
 package com.adeptusgb.musicservice.service;
 
+import com.adeptusgb.musicservice.model.SpotifySearchResponse;
 import com.adeptusgb.musicservice.repository.TokenRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,27 +25,16 @@ class SpotifyServiceTest {
     @InjectMocks private SpotifyService spotifyService;
 
     @Test
-    @Disabled
-    void getAccessTokenShouldReturnToken() {
-        // when
-        String token = null;
-        try {
-            token = spotifyService.getAccessToken();
-        } catch (URISyntaxException e) {
-            throw new RuntimeException(e);
-        }
-        // then
-        assertNotNull(token);
-    }
-
-    @Test
     void searchAlbums() {
         // given
         String query = "Deathconsciousness";
 
-        String albums = spotifyService.spotifySearch(query, "album");
+        // when
+        SpotifySearchResponse res = spotifyService.spotifySearch(query, "album");
+
+        // then
         verify(tokenRepository, times(1)).findFirst();
-        assertThat(albums).isNotNull();
+        assertThat(res.getStatusCode()).isEqualTo(200);
     }
 
     @Test
@@ -53,9 +42,12 @@ class SpotifyServiceTest {
         // given
         String query = "Godspeed You! Black Emperor";
 
-        String artists = spotifyService.spotifySearch(query, "artist");
+        // when
+        SpotifySearchResponse res = spotifyService.spotifySearch(query, "artist");
+
+        // then
         verify(tokenRepository, times(1)).findFirst();
-        assertThat(artists).isNotNull();
+        assertThat(res.getStatusCode()).isEqualTo(200);
     }
 
     @Test
@@ -63,8 +55,11 @@ class SpotifyServiceTest {
         // given
         String query = "Weird Fishes/Arpeggi";
 
-        String tracks = spotifyService.spotifySearch(query, "track");
+        // when
+        SpotifySearchResponse res = spotifyService.spotifySearch(query, "track");
+
+        // then
         verify(tokenRepository, times(1)).findFirst();
-        assertThat(tracks).isNotNull();
+        assertThat(res.getStatusCode()).isEqualTo(200);
     }
 }
