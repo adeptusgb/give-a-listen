@@ -1,7 +1,10 @@
 package com.adeptusgb.musicservice.service;
 
 import com.adeptusgb.musicservice.model.*;
-import com.adeptusgb.musicservice.repository.TokenRepository;
+import com.adeptusgb.musicservice.model.spotify.SpotifyRecommendedResponse;
+import com.adeptusgb.musicservice.model.spotify.SpotifySearchResponse;
+import com.adeptusgb.musicservice.model.spotify.SpotifyToken;
+import com.adeptusgb.musicservice.repository.SpotifyTokenRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.cdimascio.dotenv.Dotenv;
@@ -21,7 +24,7 @@ import java.util.ArrayList;
 @RequiredArgsConstructor
 public class SpotifyService {
 
-    private final TokenRepository tokenRepository;
+    private final SpotifyTokenRepository tokenRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Dotenv dotenv = Dotenv.configure()
             .directory("./src/main/resources")
@@ -31,12 +34,12 @@ public class SpotifyService {
     private static final String SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
     private static final String SPOTIFY_API_URL = "https://api.spotify.com/v1";
 
-    public String getAccessToken() throws URISyntaxException {
-        Token token = tokenRepository.findFirst();
+    public SpotifyToken getAccessToken() throws URISyntaxException {
+        SpotifyToken token = tokenRepository.findFirst();
 
         // early return if token is still valid
         if (token != null && token.getExpiresAt().isAfter(LocalDateTime.now())) {
-            return token.getAccessToken();
+            return token;
         }
 
         // if the token expired or doesn't exist, get a new one
@@ -51,26 +54,31 @@ public class SpotifyService {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             JsonNode jsonNode = objectMapper.readTree(response.body());
 
-            Token newToken = new Token(
+            SpotifyToken newToken = new SpotifyToken(
                     jsonNode.get("access_token").asText(),
                     jsonNode.get("token_type").asText(),
                     jsonNode.get("expires_in").asLong()
             );
 
             tokenRepository.save(newToken);
-            return newToken.getAccessToken();
+            return newToken;
         } catch (Exception e) {
             System.out.println(e.getMessage()); // need to handle exception properly to prevent null pointer exception
             return null;
         }
     }
 
-    // need to save tracks, artists, and albums to the database
-    public SpotifySearchResponse spotifySearch(String query, String type) {
+    // need to save tracks, artists, and albums to the database //
+    public SpotifySearchResponse spotifySearch(String query, String type, int limit) {
         try {
+            SpotifyToken token = getAccessToken();
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(new URI(SPOTIFY_API_URL + "/search?q=" + URLEncoder.encode(query) + "&type=" + type))
-                    .headers("Authorization", "Bearer " + getAccessToken())
+                    .uri(new URI(SPOTIFY_API_URL + "/search?q="
+                            + URLEncoder.encode(query)
+                            + "&type=" + type
+                            + "&limit=" + limit)
+                    )
+                    .headers("Authorization", token.getType() + token.getAccessToken())
                     .GET()
                     .build();
 
@@ -123,6 +131,75 @@ public class SpotifyService {
                         .tracks(tracksList)
                         .artists(artistsList)
                         .albums(albumsList)
+                        .statusCode(response.statusCode())
+                        .build();
+            } catch (Exception e) {
+                System.out.println(e.getMessage()); // need to handle exception properly to prevent null pointer exception
+                return null;
+            }
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // default limit is 20 //
+    public SpotifySearchResponse spotifySearch(String query, String type) {
+        return spotifySearch(query, type, 20);
+    }
+
+    // max of 5 seeds total!!! //
+    public SpotifyRecommendedResponse getRecommendedTracks(ArrayList<Track> tracks, ArrayList<Artist> artists) {
+        ArrayList<String> tracksId = new ArrayList<>();
+        ArrayList<String> artistsId = new ArrayList<>();
+
+        // eventually will check this in the music service
+        for (Track track : tracks) {
+            if (tracksId.size() != 5) {
+                tracksId.add(track.getSpotifyId());
+            }
+        }
+
+        for (Artist artist : artists) {
+            if (artistsId.size() != 5) {
+                artistsId.add(artist.getSpotifyId());
+            }
+        }
+
+        if (tracksId.size() + artistsId.size() > 5) {
+            throw new IllegalArgumentException(
+                    "Exceeded the maximum number of seeds.\nmax=5\ngot=" + (tracksId.size() + artistsId.size())
+            );
+        }
+
+        try {
+            SpotifyToken token = getAccessToken();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(new URI(SPOTIFY_API_URL
+                            + "/recommendations?"
+                            + "seed_tracks=" + URLEncoder.encode(String.join(",", tracksId))
+                            + "&seed_artists=" + URLEncoder.encode(String.join(",", artistsId)))
+                    )
+                    .headers("Authorization", token.getType() + token.getAccessToken())
+                    .GET()
+                    .build();
+
+            try (HttpClient client = HttpClient.newHttpClient()) {
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                JsonNode jsonNode = objectMapper.readTree(response.body());
+
+                ArrayList<Track> tracksList = new ArrayList<>();
+
+                for (final JsonNode track : jsonNode.get("tracks")) {
+                    tracksList.add(
+                            new Track(
+                                    track.get("name").asText(),
+                                    track.get("id").asText() // spotify ID, not the database ID!!!
+                            )
+                    );
+                }
+
+                return SpotifyRecommendedResponse.builder()
+                        .tracks(tracksList)
                         .statusCode(response.statusCode())
                         .build();
             } catch (Exception e) {

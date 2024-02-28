@@ -1,6 +1,6 @@
 package com.adeptusgb.musicservice.controller;
 
-import com.adeptusgb.musicservice.model.SpotifySearchResponse;
+import com.adeptusgb.musicservice.model.spotify.SpotifySearchResponse;
 import com.adeptusgb.musicservice.service.SpotifyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

@@ -1,4 +1,4 @@
-package com.adeptusgb.musicservice.model;
+package com.adeptusgb.musicservice.model.spotify;
 
 
 import jakarta.persistence.*;
@@ -12,7 +12,8 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @RequiredArgsConstructor
-public class Token {
+@Table(name = "spotify_token")
+public class SpotifyToken {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "id", nullable = false)
@@ -21,9 +22,9 @@ public class Token {
     private String type;
     private LocalDateTime expiresAt;
 
-    public Token(String accessToken, String type, long expiresIn) {
+    public SpotifyToken(String accessToken, String type, long expiresIn) {
         this.accessToken = accessToken;
-        this.type = type;
+        this.type = type + " "; // without a space, requests would have to add it manually
         expiresAt = LocalDateTime.now().plusSeconds(expiresIn);
     }
 }

@@ -1,5 +1,6 @@
-package com.adeptusgb.musicservice.model;
+package com.adeptusgb.musicservice.model.spotify;
 
+import com.adeptusgb.musicservice.model.Track;
 import lombok.*;
 
 import java.util.ArrayList;
@@ -9,10 +10,7 @@ import java.util.ArrayList;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SpotifySearchResponse {
+public class SpotifyRecommendedResponse {
     private ArrayList<Track> tracks;
-    private ArrayList<Artist> artists;
-    private ArrayList<Album> albums;
     private int statusCode;
 }
-
