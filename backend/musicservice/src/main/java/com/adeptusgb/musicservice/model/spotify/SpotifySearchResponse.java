@@ -6,6 +6,7 @@ import com.adeptusgb.musicservice.model.Track;
 import lombok.*;
 
 import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -13,9 +14,9 @@ import java.util.ArrayList;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SpotifySearchResponse {
-    private ArrayList<Track> tracks;
-    private ArrayList<Artist> artists;
-    private ArrayList<Album> albums;
+    private List<Track> tracks;
+    private List<Artist> artists;
+    private List<Album> albums;
     private int statusCode;
 }
 

@@ -12,7 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.util.ArrayList;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.times;
@@ -70,8 +70,11 @@ class SpotifyServiceTest {
         // given
         String trackQuery = "Wish You Were Here";
         String artistQuery = "Pink Floyd";
-        ArrayList<Track> tracks = spotifyService.spotifySearch(trackQuery, "track",1).getTracks();
-        ArrayList<Artist> artists = spotifyService.spotifySearch(artistQuery, "artist",1).getArtists();
+
+        List<String> tracks = spotifyService.spotifySearch(trackQuery, "track",1)
+                .getTracks().stream().map(Track::getSpotifyId).toList();
+        List<String> artists = spotifyService.spotifySearch(artistQuery, "artist",1)
+                .getArtists().stream().map(Artist::getSpotifyId).toList();
 
         // when
         SpotifyRecommendedResponse res = spotifyService.getRecommendedTracks(tracks, artists);

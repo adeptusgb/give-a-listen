@@ -4,6 +4,7 @@ import com.adeptusgb.musicservice.model.Track;
 import lombok.*;
 
 import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -11,6 +12,6 @@ import java.util.ArrayList;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SpotifyRecommendedResponse {
-    private ArrayList<Track> tracks;
+    private List<Track> tracks;
     private int statusCode;
 }

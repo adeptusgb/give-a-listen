@@ -19,6 +19,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -148,36 +149,14 @@ public class SpotifyService {
     }
 
     // max of 5 seeds total!!! //
-    public SpotifyRecommendedResponse getRecommendedTracks(ArrayList<Track> tracks, ArrayList<Artist> artists) {
-        ArrayList<String> tracksId = new ArrayList<>();
-        ArrayList<String> artistsId = new ArrayList<>();
-
-        // eventually will check this in the music service
-        for (Track track : tracks) {
-            if (tracksId.size() != 5) {
-                tracksId.add(track.getSpotifyId());
-            }
-        }
-
-        for (Artist artist : artists) {
-            if (artistsId.size() != 5) {
-                artistsId.add(artist.getSpotifyId());
-            }
-        }
-
-        if (tracksId.size() + artistsId.size() > 5) {
-            throw new IllegalArgumentException(
-                    "Exceeded the maximum number of seeds.\nmax=5\ngot=" + (tracksId.size() + artistsId.size())
-            );
-        }
-
+    public SpotifyRecommendedResponse getRecommendedTracks(List<String> tracksIds, List<String> artistsIds) {
         try {
             SpotifyToken token = getAccessToken();
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(new URI(SPOTIFY_API_URL
                             + "/recommendations?"
-                            + "seed_tracks=" + URLEncoder.encode(String.join(",", tracksId))
-                            + "&seed_artists=" + URLEncoder.encode(String.join(",", artistsId)))
+                            + "seed_tracks=" + URLEncoder.encode(String.join(",", tracksIds))
+                            + "&seed_artists=" + URLEncoder.encode(String.join(",", artistsIds)))
                     )
                     .headers("Authorization", token.getType() + token.getAccessToken())
                     .GET()
