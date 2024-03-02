@@ -16,23 +16,26 @@ public class MusicService {
 
     private final SpotifyService spotifyService;
 
-    private SpotifySearchResponse searchForAlbumOrArtistOrTrack(String query, String type) {
-        return spotifyService.spotifySearch(query, type);
+    private SpotifySearchResponse searchForAlbumOrArtistOrTrack(String query, String type, Integer limit) {
+        if (limit > 50) limit = 50; // max limit
+        else if (limit < 1) limit = 1; // min limit
+
+        return spotifyService.spotifySearch(query, type, limit);
     }
 
-    public List<Album> searchForAlbum(String query) {
-        return searchForAlbumOrArtistOrTrack(query, "album").getAlbums();
+    public List<Album> searchForAlbum(String query, Integer limit) {
+        return searchForAlbumOrArtistOrTrack(query, "album", limit).getAlbums();
     }
 
-    public List<Artist> searchForArtist(String query) {
-        return searchForAlbumOrArtistOrTrack(query, "artist").getArtists();
+    public List<Artist> searchForArtist(String query, Integer limit) {
+        return searchForAlbumOrArtistOrTrack(query, "artist", limit).getArtists();
     }
 
-    public List<Track> searchForTrack(String query) {
-        return searchForAlbumOrArtistOrTrack(query, "track").getTracks();
+    public List<Track> searchForTrack(String query, Integer limit) {
+        return searchForAlbumOrArtistOrTrack(query, "track", limit).getTracks();
     }
 
-    public List<Track> getRecommendedTracks(getRecommendedRequestDTO seeds) {
+    public List<Track> getRecommendedTracks(getRecommendedRequestDTO seeds, Integer limit) {
 
         if (seeds.tracks().size() + seeds.artists().size() > 5) {
             // eventually will be handled by a global exception handler, with a custom error message
@@ -41,6 +44,9 @@ public class MusicService {
             );
         }
 
-        return spotifyService.getRecommendedTracks(seeds.tracks(), seeds.artists()).getTracks();
+        if (limit > 50) limit = 50; // max limit
+        else if (limit < 1) limit = 1; // min limit
+
+        return spotifyService.getRecommendedTracks(seeds.tracks(), seeds.artists(), limit).getTracks();
     }
 }

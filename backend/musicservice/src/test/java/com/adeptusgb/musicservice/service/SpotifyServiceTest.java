@@ -31,7 +31,7 @@ class SpotifyServiceTest {
         String query = "Deathconsciousness";
 
         // when
-        SpotifySearchResponse res = spotifyService.spotifySearch(query, "album");
+        SpotifySearchResponse res = spotifyService.spotifySearch(query, "album", 1);
 
         // then
         verify(tokenRepository, times(1)).findFirst();
@@ -44,7 +44,7 @@ class SpotifyServiceTest {
         String query = "Godspeed You! Black Emperor";
 
         // when
-        SpotifySearchResponse res = spotifyService.spotifySearch(query, "artist");
+        SpotifySearchResponse res = spotifyService.spotifySearch(query, "artist", 1);
 
         // then
         verify(tokenRepository, times(1)).findFirst();
@@ -57,7 +57,7 @@ class SpotifyServiceTest {
         String query = "Weird Fishes/Arpeggi";
 
         // when
-        SpotifySearchResponse res = spotifyService.spotifySearch(query, "track");
+        SpotifySearchResponse res = spotifyService.spotifySearch(query, "track", 1);
 
         // then
         verify(tokenRepository, times(1)).findFirst();
@@ -77,7 +77,7 @@ class SpotifyServiceTest {
                 .getArtists().stream().map(Artist::getSpotifyId).toList();
 
         // when
-        SpotifyRecommendedResponse res = spotifyService.getRecommendedTracks(tracks, artists);
+        SpotifyRecommendedResponse res = spotifyService.getRecommendedTracks(tracks, artists, 1);
 
         // then
         System.out.println(res.getTracks());

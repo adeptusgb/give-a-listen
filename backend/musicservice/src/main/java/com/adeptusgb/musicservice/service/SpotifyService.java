@@ -1,16 +1,21 @@
 package com.adeptusgb.musicservice.service;
 
+import com.adeptusgb.musicservice.exception.ExternalServiceCommunicationException;
 import com.adeptusgb.musicservice.model.*;
 import com.adeptusgb.musicservice.model.spotify.SpotifyRecommendedResponse;
 import com.adeptusgb.musicservice.model.spotify.SpotifySearchResponse;
 import com.adeptusgb.musicservice.model.spotify.SpotifyToken;
 import com.adeptusgb.musicservice.repository.SpotifyTokenRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.cdimascio.dotenv.Dotenv;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.RequestParam;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
@@ -35,7 +40,7 @@ public class SpotifyService {
     private static final String SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
     private static final String SPOTIFY_API_URL = "https://api.spotify.com/v1";
 
-    public SpotifyToken getAccessToken() throws URISyntaxException {
+    public SpotifyToken getAccessToken() {
         SpotifyToken token = tokenRepository.findFirst();
 
         // early return if token is still valid
@@ -45,27 +50,28 @@ public class SpotifyService {
 
         // if the token expired or doesn't exist, get a new one
         tokenRepository.deleteAll();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(new URI(SPOTIFY_TOKEN_URL))
-                .headers("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString("grant_type=client_credentials&client_id="+ SPOTIFY_CREDENTIAL +"&client_secret="+ SPOTIFY_SECRET))
-                .build();
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(new URI(SPOTIFY_TOKEN_URL))
+                    .headers("Content-Type", "application/x-www-form-urlencoded")
+                    .POST(HttpRequest.BodyPublishers.ofString("grant_type=client_credentials&client_id=" + SPOTIFY_CREDENTIAL + "&client_secret=" + SPOTIFY_SECRET))
+                    .build();
 
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            JsonNode jsonNode = objectMapper.readTree(response.body());
+            try (HttpClient client = HttpClient.newHttpClient()) {
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                JsonNode jsonNode = objectMapper.readTree(response.body());
 
-            SpotifyToken newToken = new SpotifyToken(
-                    jsonNode.get("access_token").asText(),
-                    jsonNode.get("token_type").asText(),
-                    jsonNode.get("expires_in").asLong()
-            );
+                SpotifyToken newToken = new SpotifyToken(
+                        jsonNode.get("access_token").asText(),
+                        jsonNode.get("token_type").asText(),
+                        jsonNode.get("expires_in").asLong()
+                );
 
-            tokenRepository.save(newToken);
-            return newToken;
+                tokenRepository.save(newToken);
+                return newToken;
+            }
         } catch (Exception e) {
-            System.out.println(e.getMessage()); // need to handle exception properly to prevent null pointer exception
-            return null;
+            throw new ExternalServiceCommunicationException("Failed to get access token from Spotify");
         }
     }
 
@@ -85,6 +91,13 @@ public class SpotifyService {
 
             try (HttpClient client = HttpClient.newHttpClient()) {
                 HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+                if (response.statusCode() != 200) {
+                    throw new ExternalServiceCommunicationException(
+                            "An error occurred while trying to communicate with Spotify :(\nSpotify response status code: " + response.statusCode()
+                    );
+                }
+
                 JsonNode jsonNode = objectMapper.readTree(response.body());
 
                 ArrayList<Track> tracksList = new ArrayList<>();
@@ -135,28 +148,24 @@ public class SpotifyService {
                         .statusCode(response.statusCode())
                         .build();
             } catch (Exception e) {
-                System.out.println(e.getMessage()); // need to handle exception properly to prevent null pointer exception
-                return null;
+                throw new RuntimeException("Unexpected error occurred: " + e);
             }
         } catch (URISyntaxException e) {
-            throw new RuntimeException(e);
+            throw new ExternalServiceCommunicationException("An error occurred while trying to communicate with Spotify :(");
         }
     }
 
-    // default limit is 20 //
-    public SpotifySearchResponse spotifySearch(String query, String type) {
-        return spotifySearch(query, type, 20);
-    }
-
     // max of 5 seeds total!!! //
-    public SpotifyRecommendedResponse getRecommendedTracks(List<String> tracksIds, List<String> artistsIds) {
+    public SpotifyRecommendedResponse getRecommendedTracks(List<String> tracksIds, List<String> artistsIds, Integer limit) {
         try {
             SpotifyToken token = getAccessToken();
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(new URI(SPOTIFY_API_URL
                             + "/recommendations?"
                             + "seed_tracks=" + URLEncoder.encode(String.join(",", tracksIds))
-                            + "&seed_artists=" + URLEncoder.encode(String.join(",", artistsIds)))
+                            + "&seed_artists=" + URLEncoder.encode(String.join(",", artistsIds))
+                            + "&limit=" + limit
+                            )
                     )
                     .headers("Authorization", token.getType() + token.getAccessToken())
                     .GET()
@@ -164,9 +173,16 @@ public class SpotifyService {
 
             try (HttpClient client = HttpClient.newHttpClient()) {
                 HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-                JsonNode jsonNode = objectMapper.readTree(response.body());
+
+                if (response.statusCode() != 200) {
+                    throw new ExternalServiceCommunicationException(
+                            "An error occurred while trying to communicate with Spotify :(\nSpotify response status code: " + response.statusCode()
+                    );
+                }
 
                 ArrayList<Track> tracksList = new ArrayList<>();
+
+                JsonNode jsonNode = objectMapper.readTree(response.body());
 
                 for (final JsonNode track : jsonNode.get("tracks")) {
                     tracksList.add(
@@ -182,11 +198,10 @@ public class SpotifyService {
                         .statusCode(response.statusCode())
                         .build();
             } catch (Exception e) {
-                System.out.println(e.getMessage()); // need to handle exception properly to prevent null pointer exception
-                return null;
+                throw new RuntimeException("Unexpected error occurred: " + e);
             }
         } catch (URISyntaxException e) {
-            throw new RuntimeException(e);
+            throw new ExternalServiceCommunicationException("An error occurred while trying to communicate with Spotify :(");
         }
     }
 }
